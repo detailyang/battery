@@ -2,7 +2,6 @@
 
 <img width="300px" align="right" src="./screenshots/tray.png"/>This tool makes it possible to keep a chronically plugged in Apple Silicon Macbook at `80%` battery, since that will prolong the longevity of the battery. It is free and open-source and will remain that way.
 
-
 > Want to know if this tool does anything or is just a placebo? Read [this excellent article](https://batteryuniversity.com/article/bu-808-how-to-prolong-lithium-based-batteries). TL;DR: keep your battery cool, keep it at 80% when plugged in, and discharge it as shallowly as feasible.
 
 ### Requirements
@@ -11,15 +10,17 @@ This is an app for Apple Silicon Macs. It will not work on Intel macs. Do you ha
 
 ### Installation
 
-- Option 1: install through brew with `brew install battery`
-- Option 2: [You can download the latest app dmg version here]( https://github.com/actuallymentor/battery/releases/ ).
-- Option 3: command-line only installation (see section below)
+- Option 1: install the app through brew with `brew install battery`
+- Option 2: [download the app dmg version here](https://github.com/actuallymentor/battery/releases/)
+- Option 3: install ONLY the command line interface (see section below)
+
+When installing via brew or dmg, opening the macOS app is required to complete the installation.
 
 The first time you open the app, it will ask for your administator password so it can install the needed components. Please note that the app:
 
 - Discharges your battery until it reaches 80%, **even when plugged in**
 - Disables charging when your battery is above 80% charged
-- Enabled charging when your battery is under 80% charged
+- Enables charging when your battery is under 80% charged
 - Keeps the limit engaged even after rebooting
 - Keeps the limit engaged even after closing the tray app
 - Also automatically installs the `battery` command line tool. If you want a custom charging percentage, the CLI is the only way to do that.
@@ -27,7 +28,6 @@ The first time you open the app, it will ask for your administator password so i
 Do you have questions, comments, or feature requests? [Open an issue here](https://github.com/actuallymentor/battery/issues) or [Tweet at me](https://twitter.com/actuallymentor).
 
 ---
-
 
 ## 🖥 Command-line version
 
@@ -47,7 +47,7 @@ curl -s https://raw.githubusercontent.com/actuallymentor/battery/main/setup.sh |
 
 This will:
 
-1. Download the precompiled `smc` tool in this repo (built from the [hholtmann/smcFanControl]( https://github.com/hholtmann/smcFanControl.git ) repository)
+1. Download the precompiled `smc` tool in this repo (built from the [hholtmann/smcFanControl](https://github.com/hholtmann/smcFanControl.git) repository)
 2. Install `smc` to `/usr/local/bin`
 3. Install `battery` to `/usr/local/bin`
 
@@ -67,7 +67,6 @@ After running a command like `battery charging off` you can verify the change vi
 After running `battery charging on` you will see it change to this:
 
 ![Battery charging](./screenshots/charging-screenshot.png)
-
 
 For help, run `battery` without parameters:
 
@@ -139,11 +138,19 @@ Then reopen the app and things should work. If not, [open an issue](https://gith
 This tool calls a number of urls, blocking all of them will only break auto-updates.
 
 1. `unidentifiedanalytics.web.app` is a self-made app that tracks app installations, I use it to see if enough people use the app to justify spending time on it. It tracks only how many unique ip addresses open the app.
-1. `icanhasip.com` is used to see if there is an internet connection
+1. `icanhazip.com` is used to see if there is an internet connection
 1. `github.com` is used both as a liveness check and as the source of updates for the underlying command-line utility
 1. `electronjs.org` hosts the update server for the GUI
 
 All urls are called over `https` and so not leak data. Unidentified Analytics keeps track of unique ip addresses that open the app, but nothing else.
+
+### What distinguishes this project from Optimized Charging?
+
+Optimized Charging, a feature that is built into MacOS, aims to ensure the longevity and health of your battery. It does so by "delaying charging the battery past 80% when it predicts that you’ll be plugged in for an extended period of time, and aims to charge the battery before you unplug," as explained in [Apple's user guide](https://support.apple.com/en-ca/guide/mac-help/mchlfc3b7879/mac#:~:text=Optimized%20Battery%20Charging%3A%20To%20reduce,the%20battery%20before%20you%20unplug.).
+
+Additionally, Optimized Charging uses machine learning to decide when the battery should be held at 80%, and when it should become fully charged. If your Mac is not plugged in on a regular schedule, optimized charging will not work as intended.
+
+This app is a similar alternative to Optimized Charging, giving the user control over when it is activated, what percentage the battery should be held at, and more.
 
 ### How do I support this project?
 

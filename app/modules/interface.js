@@ -2,11 +2,13 @@ const { shell, app, Tray, Menu, powerMonitor, nativeTheme } = require( 'electron
 const { enable_battery_limiter, disable_battery_limiter, initialize_battery, is_limiter_enabled, get_battery_status, uninstall_battery } = require( './battery' )
 const { log } = require( "./helpers" )
 const { get_logo_template } = require( './theme' )
+const { get_force_discharge_setting, update_force_discharge_setting } = require( './settings' )
 
 /* ///////////////////////////////
 // Menu helpers
 // /////////////////////////////*/
 let tray = undefined
+
 
 // Set interface to usable
 const generate_app_menu = async () => {
@@ -18,8 +20,11 @@ const generate_app_menu = async () => {
         // Check if limiter is on
         const limiter_on = await is_limiter_enabled()
 
+        // Check force discharge setting
+        const allow_discharge = get_force_discharge_setting()
+
         // Set tray icon
-        log( `Generate app menu percentage: ${ percentage }` )
+        log( `Generate app menu percentage: ${ percentage } (discharge ${ allow_discharge ? 'allowed' : 'disallowed' }, limited ${ limiter_on ? 'on' : 'off' })` )
         tray.setImage( get_logo_template( percentage, limiter_on ) )
 
         // Build menu
@@ -50,6 +55,20 @@ const generate_app_menu = async () => {
             },
             {
                 type: 'separator'
+            },
+            {
+                label: `Advanced settings`,
+                submenu: [
+                    {
+                        label: `Allow force-discharging`,
+                        type: 'checkbox',
+                        checked: allow_discharge,
+                        click: async () => {
+                            const success = await update_force_discharge_setting()
+                            if( limiter_on && success ) await restart_limiter()
+                        }
+                    }
+                ]
             },
             {
                 label: `About v${ app.getVersion() }`,
@@ -223,6 +242,21 @@ async function disable_limiter() {
     }
 
 }
+
+async function restart_limiter() {
+
+    try {
+        log( 'Restart limiter' )
+        const percent_left = await disable_battery_limiter()
+        await enable_battery_limiter()
+        await refresh_logo( percent_left, 'active' )
+        await refresh_tray()
+    } catch ( e ) {
+        log( `Error in restart_limiter: `, e )
+    }
+
+}
+
 
 module.exports = {
     set_initial_interface

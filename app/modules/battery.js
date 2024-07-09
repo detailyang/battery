@@ -2,8 +2,9 @@
 const { app } = require( 'electron' )
 const { exec } = require( 'node:child_process' )
 const { log, alert, wait, confirm } = require( './helpers' )
+const { get_force_discharge_setting } = require( './settings' )
 const { USER } = process.env
-const path_fix = 'PATH=/bin:/usr/bin:/usr/local/bin:/usr/sbin:/opt/homebrew'
+const path_fix = 'PATH=/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
 const battery = `${ path_fix } battery`
 const shell_options = {
     shell: '/bin/bash',
@@ -81,10 +82,12 @@ const get_battery_status = async () => {
 // /////////////////////////////*/
 const enable_battery_limiter = async () => {
 
+
     try {
         // Start battery maintainer
         const status = await get_battery_status()
-        await exec_async( `${ battery } maintain ${ status?.maintain_percentage || 80 }` )
+        const allow_force_discharge = get_force_discharge_setting()
+        await exec_async( `${ battery } maintain ${ status?.maintain_percentage || 80 }${ allow_force_discharge ? ' --force-discharge' : '' }` )
         log( `enable_battery_limiter exec complete` )
         return status?.percentage
     } catch ( e ) {
@@ -117,25 +120,29 @@ const initialize_battery = async () => {
 
         // Check for network
         const online = await Promise.race( [
-            exec_async( `${ path_fix } curl icanhasip.com &> /dev/null` ).then( () => true ).catch( () => false ),
-            exec_async( `${ path_fix } curl github.com &> /dev/null` ).then( () => true ).catch( () => false )
+            exec_async( `${ path_fix } curl -I https://icanhazip.com &> /dev/null` ).then( () => true ).catch( () => false ),
+            exec_async( `${ path_fix } curl -I https://github.com &> /dev/null` ).then( () => true ).catch( () => false )
         ] )
         log( `Internet online: ${ online }` )
 
-        // Check if battery is installed
+        // Check if battery is installed and visudo entries are complete. New visudo entries are added when we do new `sudo` stuff in battery.sh
         const [
             battery_installed,
             smc_installed,
             charging_in_visudo,
-            discharging_in_visudo
+            discharging_in_visudo,
+            magsafe_led_in_visudo,
+            additional_magsafe_led_in_visudo
         ] = await Promise.all( [
             exec_async( `${ path_fix } which battery` ).catch( () => false ),
             exec_async( `${ path_fix } which smc` ).catch( () => false ),
             exec_async( `${ path_fix } sudo -n /usr/local/bin/smc -k CH0C -r` ).catch( () => false ),
-            exec_async( `${ path_fix } sudo -n /usr/local/bin/smc -k CH0I -r` ).catch( () => false )
+            exec_async( `${ path_fix } sudo -n /usr/local/bin/smc -k CH0I -r` ).catch( () => false ),
+            exec_async( `${ path_fix } sudo -n /usr/local/bin/smc -k ACLC -r` ).catch( () => false ),
+            exec_async( `${ path_fix } sudo -n /usr/local/bin/smc -k ACLC -w 02` ).catch( () => false )
         ] )
 
-        const visudo_complete = charging_in_visudo && discharging_in_visudo
+        const visudo_complete = charging_in_visudo && discharging_in_visudo && magsafe_led_in_visudo && additional_magsafe_led_in_visudo
         const is_installed = battery_installed && smc_installed
         log( 'Is installed? ', is_installed )
 
@@ -150,7 +157,7 @@ const initialize_battery = async () => {
             if( !online ) return log( `Skipping battery update because we are offline` )
             if( skipupdate ) return log( `Skipping update due to environment variable` )
             log( `Updating battery...` )
-            const result = await exec_async( `${ battery } update silent` )
+            const result = await exec_async( `${ battery } update silent` ).catch( e => e )
             log( `Update result: `, result )
         }
 
@@ -158,11 +165,15 @@ const initialize_battery = async () => {
         if( !is_installed || !visudo_complete ) {
             log( `Installing battery for ${ USER }...` )
             if( !online ) return alert( `Battery needs an internet connection to download the latest version, please connect to the internet and open the app again.` )
-            await alert( `Welcome to the Battery limiting tool. The app needs to install/update some components, so it will ask for your password. This should only be needed once.` )
+            if( !is_installed ) await alert( `Welcome to the Battery limiting tool. The app needs to install/update some components, so it will ask for your password. This should only be needed once.` )
+            if( !visudo_complete ) await alert( `Battery needs to apply a backwards incompatible update, to do this it will ask for your password. This should not happen frequently.` )
             const result = await exec_sudo_async( `curl -s https://raw.githubusercontent.com/actuallymentor/battery/main/setup.sh | bash -s -- $USER` )
             log( `Install result success `, result )
             await alert( `Battery background components installed successfully. You can find the battery limiter icon in the top right of your menu bar.` )
         }
+
+        // Recover old battery setting on boot (as we killed all old processes above)
+        await exec_async( `${ battery } maintain recover` )
 
         // Basic user tracking on app open, run it in the background so it does not cause any delay for the user
         if( online ) exec_async( `nohup curl "https://unidentifiedanalytics.web.app/touch/?namespace=battery" > /dev/null 2>&1` )
